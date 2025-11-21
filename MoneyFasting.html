@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wishlist Tabungan Gen Z</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #ffd6ff, #e7c6ff, #c8b6ff);
+        padding: 20px;
+        color: #333;
+        overflow-x: hidden;
+    }
+    h1 {
+        text-align: center;
+        font-size: 32px;
+        margin-bottom: 20px;
+        color: #5a189a;
+    }
+    .container {
+        max-width: 800px;
+        margin: auto;
+        background: #ffffffcc;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    input, button {
+        padding: 10px;
+        border-radius: 10px;
+        border: none;
+        margin: 5px 0;
+        width: 100%;
+    }
+    button {
+        background: #9d4edd;
+        color: white;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    button:hover {
+        background: #7b2cbf;
+    }
+    .item {
+        background: #f3e8ff;
+        padding: 15px;
+        margin-top: 10px;
+        border-radius: 15px;
+        animation: pop 0.4s;
+    }
+    @keyframes pop {
+        0% { transform: scale(0.7); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .progress {
+        height: 12px;
+        background: #ddd;
+        border-radius: 20px;
+        margin-top: 10px;
+    }
+    .progress-bar {
+        height: 100%;
+        background: #9d4edd;
+        border-radius: 20px;
+        transition: width 0.4s ease;
+    }
+    #notif {
+        position: fixed;
+        top: 20px;
+        right: -300px;
+        background: #7b2cbf;
+        color: white;
+        padding: 15px;
+        border-radius: 12px;
+        transition: 0.5s;
+    }
+    /* Floating cute emojis */
+    .emoji {
+        position: fixed;
+        font-size: 30px;
+        animation: float 4s infinite ease-in-out;
+        opacity: 0.7;
+    }
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-25px); }
+        100% { transform: translateY(0px); }
+    }
+</style>
+</head>
+<body>
+<h1>✨ Wishlist Tabungan Gen Z ✨</h1>
+<div id="notif"></div>
+<div class="container">
+    <h3>Saldo Kamu</h3>
+    <input type="number" id="saldo" placeholder="Masukkan saldo..." />
+
+    <h3>Tabungan per Minggu</h3>
+    <input type="number" id="tabunganMinggu" placeholder="Masukkan tabungan per minggu..." />
+
+    <h3>Tambah Wishlist</h3>
+    <input type="text" id="namaBarang" placeholder="Nama barang..." />
+    <input type="number" id="hargaBarang" placeholder="Harga barang..." />
+    <button onclick="tambahWishlist()">Tambah</button>
+
+    <h3>Daftar Wishlist</h3>
+    <div id="wishlist"></div>
+
+    <h3>Goal Tercapai 🎉</h3>
+    <div id="goals"></div>
+
+    <button onclick="exportData()" style="background:#5a189a;margin-top:25px;">Export Data</button>
+
+    <h3 style="margin-top:30px;">Grafik Progress</h3>
+    <canvas id="chart" height="200"></canvas>
+</div>
+
+<script>
+// === ANIMASI EMOJI CUTE ===
+const emojis = ["✨", "⭐", "🌟", "💜", "💖", "🎀", "🦋"];
+for (let i = 0; i < 10; i++) {
+    const e = document.createElement("div");
+    e.className = "emoji";
+    e.innerText = emojis[Math.floor(Math.random()*emojis.length)];
+    e.style.left = Math.random()*100 + "vw";
+    e.style.top = Math.random()*100 + "vh";
+    e.style.animationDuration = (3 + Math.random()*3) + "s";
+    document.body.appendChild(e);
+}
+
+// === DATA ===
+let wishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+let goals = JSON.parse(localStorage.getItem("goals")) || [];
+
+function simpan() {
+    localStorage.setItem("wishlist", JSON.stringify(wishlist));
+    localStorage.setItem("goals", JSON.stringify(goals));
+}
+
+function tampilkanNotif(text) {
+    const n = document.getElementById("notif");
+    n.innerText = text;
+    n.style.right = "20px";
+    setTimeout(() => { n.style.right = "-300px"; }, 2500);
+}
+
+function tambahWishlist() {
+    const nama = document.getElementById("namaBarang").value;
+    const harga = Number(document.getElementById("hargaBarang").value);
+
+    if (!nama || !harga) return tampilkanNotif("Isi nama & harga dulu!");
+
+    wishlist.push({ nama, harga });
+    simpan();
+    render();
+    updateChart();
+}
+
+function pindahKeGoal(index) {
+    goals.push(wishlist[index]);
+    wishlist.splice(index, 1);
+    simpan();
+    render();
+    updateChart();
+    confetti();
+}
+
+function render() {
+    const saldo = Number(document.getElementById("saldo").value);
+    const tabungan = Number(document.getElementById("tabunganMinggu").value);
+
+    const w = document.getElementById("wishlist");
+    w.innerHTML = "";
+
+    wishlist.forEach((item, i) => {
+        const persen = Math.min((saldo / item.harga) * 100, 100);
+        const sisa = item.harga - saldo;
+        const hari = tabungan > 0 ? Math.ceil((sisa / tabungan) * 7) : "-";
+
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+            <b>${item.nama}</b> - Rp ${item.harga}<br>
+            Progress: ${persen.toFixed(0)}%<br>
+            Perkiraan hari lagi: <b>${hari}</b><br>
+            <div class="progress"><div class="progress-bar" style="width:${persen}%;"></div></div>
+            ${persen >= 100 ? `<button onclick="pindahKeGoal(${i})">Siap dibeli!</button>` : ""}
+        `;
+        if (persen >= 100) tampilkanNotif(item.nama + " siap dibeli!");
+
+        w.appendChild(div);
+    });
+
+    const g = document.getElementById("goals");
+    g.innerHTML = goals.map(x => `<div class="item">🎉 ${x.nama}</div>`).join("");
+}
+
+// === EXPORT DATA ===
+function exportData() {
+    const data = { wishlist, goals };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wishlist-data.json";
+    a.click();
+}
+
+// === GRAFIK ===
+let chart;
+function updateChart() {
+    const ctx = document.getElementById("chart").getContext("2d");
+
+    const labels = wishlist.map(i => i.nama);
+    const saldo = Number(document.getElementById("saldo").value);
+    const kurang = wishlist.map(i => Math.max(i.harga - saldo, 0));
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Sisa Harga",
+                data: kurang,
+                backgroundColor: "rgba(157, 78, 221, 0.6)",
+            }]
+        }
+    });
+}
+
+// === CONFETTI ANIMATION ===
+function confetti() {
+    for (let i = 0; i < 20; i++) {
+        const c = document.createElement("div");
+        c.innerText = "🎉";
+        c.style.position = "fixed";
+        c.style.left = Math.random() * 100 + "vw";
+        c.style.top = "-20px";
+        c.style.fontSize = "25px";
+        c.style.animation = `drop ${(2 + Math.random()*1)}s linear`;
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 3000);
+    }
+}
+
+const style = document.createElement("style");
+style.innerHTML = `@keyframes drop { to { transform: translateY(100vh); opacity: 0; } }`;
+document.head.appendChild(style);
+
+render();
+updateChart();
+</script>
+</body>
+</html>
